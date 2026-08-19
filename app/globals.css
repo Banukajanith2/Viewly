@@ -197,5 +197,9 @@
   }
   html {
     @apply font-sans;
+    /* Smooth in-page anchor scrolling for the landing page nav. The
+       prefers-reduced-motion block above already forces this back to auto, so
+       nobody who asked for less motion gets a long animated jump. */
+    scroll-behavior: smooth;
   }
 }
