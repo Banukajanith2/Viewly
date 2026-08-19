@@ -6,11 +6,13 @@ import { StatTile } from "@/components/dashboard/stat-tile";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { DownloadButton } from "@/components/dashboard/download-button";
 import { TrendingPanel } from "@/components/keywords/trending-panel";
+import { SuggestPanel } from "@/components/keywords/suggest-panel";
 import { requireUser } from "@/lib/auth/session";
 import { getLatestSnapshot, getUserProfile } from "@/lib/firebase/firestore";
 import { cacheKeys, get as cacheGet } from "@/lib/cache/kv";
 import { extractKeywords, rankVideoKeywords } from "@/lib/youtube/keywords";
 import { resolveRegion, regionName } from "@/lib/youtube/regions";
+import { isGeminiConfigured } from "@/lib/ai/gemini";
 import { formatCount, formatRelativeTime } from "@/lib/utils/formatters";
 import type { TrendingVideo } from "@/types/youtube";
 
@@ -169,6 +171,10 @@ export default async function KeywordInspectorPage() {
               })}
             </ul>
           </section>
+
+          {/* Part 8.3. Placed after the creator's own keywords so the page reads
+              as "here is your niche" before "here is a machine's opinion of it". */}
+          <SuggestPanel configured={isGeminiConfigured()} />
 
           {trending && trending.videos.length > 0 && (
             <section>

@@ -38,6 +38,10 @@ export type RateLimitReason =
   | "discovery_cooldown"
   | "global_search_budget"
   | "global_quota_exhausted"
+  // Part 8.3. LLM calls spend no YouTube quota, but they share the typed 429
+  // contract so the client needs only one error handler.
+  | "ai_daily_cap"
+  | "ai_cap_unavailable"
   | "analytics_daily_cap";
 
 export type RateLimitResult =

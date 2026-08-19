@@ -73,6 +73,35 @@ export async function set<T>(key: string, value: T, ttlSeconds: number): Promise
   }
 }
 
+/**
+ * Atomically increments a counter and returns the new value, setting a TTL the
+ * first time the key appears.
+ *
+ * INCR rather than get-then-set because this backs a rate limit: two concurrent
+ * requests reading 4 and both writing 5 is exactly the case a limit has to survive.
+ *
+ * Returns null when the cache is unavailable, and callers enforcing a LIMIT must
+ * treat that as a refusal rather than as permission. A counter that cannot count
+ * is not a reason to allow unlimited calls.
+ */
+export async function increment(key: string, ttlSeconds: number): Promise<number | null> {
+  const r = redis();
+  if (!r) return null;
+
+  try {
+    const full = namespaced(key);
+    const value = await r.incr(full);
+    // Only on creation, so an in-flight window is not extended by later hits.
+    if (value === 1 && ttlSeconds > 0) {
+      await r.expire(full, Math.floor(ttlSeconds));
+    }
+    return value;
+  } catch (err) {
+    console.warn("[kv] incr failed:", describe(err));
+    return null;
+  }
+}
+
 export async function del(key: string): Promise<void> {
   const r = redis();
   if (!r) return;
@@ -122,6 +151,8 @@ export const cacheKeys = {
   retention: (userId: string) => `retention:${userId}`,
   /** Keyed by REGION, not by user: the chart is identical for everyone there. */
   trending: (region: string) => `trending:${region.toUpperCase()}`,
+  /** Per user, per UTC day, so the cap resets with the rest of the app's limits. */
+  aiSuggestions: (userId: string, day: string) => `ai:suggest:${day}:${userId}`,
 } as const;
 
 /** Dashboard snapshots change once a day, so hours of staleness cost nothing. */
