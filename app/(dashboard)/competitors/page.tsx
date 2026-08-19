@@ -111,7 +111,10 @@ export default async function CompetitorsPage() {
           {candidates.length > 0 && (
             <DownloadButton rows={exportRows} filename="viewly-competitors" />
           )}
-          <DiscoverButton hasResults={candidates.length > 0} />
+          <DiscoverButton
+            hasResults={candidates.length > 0}
+            cooldownDays={DISCOVERY_COOLDOWN_DAYS}
+          />
         </div>
       </header>
 
