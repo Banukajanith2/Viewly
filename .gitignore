@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local-only project journal (rules, progress, bugs and fixes)
+/CLAUDE.md
+
+# but keep the env template committed
+!.env.local.example

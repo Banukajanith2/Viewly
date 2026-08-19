@@ -1,0 +1,93 @@
+rules_version = '2';
+
+// Viewly - Firestore security rules (Part 2)
+//
+// Reading model: the Firebase Admin SDK bypasses these rules entirely, so every
+// "server-only" collection below is expressed simply as "deny all clients".
+// Rules do NOT cascade into subcollections unless a {document=**} wildcard is used,
+// so each subcollection under users/{userId} is spelled out on purpose - in
+// particular tokens/, which must never become client-readable by accident.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Fields the client is allowed to change on its own profile. channelId,
+    // channelTitle and lastDiscoveryRunAt are server-written only: letting a client
+    // clear lastDiscoveryRunAt would defeat the 7-day discovery cooldown, which is
+    // the main defence for a quota budget shared across the whole app.
+    function onlyMutatesAllowedProfileFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['displayName', 'photoURL', 'homeRegion', 'trackedCompetitorIds']);
+    }
+
+    /* ----------------------------------------------------------- users */
+
+    match /users/{userId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.uid == userId;
+      allow update: if isOwner(userId) && onlyMutatesAllowedProfileFields();
+      allow delete: if false; // account deletion runs server-side
+    }
+
+    // OAuth refresh tokens. Server (Admin SDK) only - no client access, ever.
+    match /users/{userId}/tokens/{tokenId} {
+      allow read, write: if false;
+    }
+
+    // Daily snapshots written by the sync cron; owner may read its own.
+    match /users/{userId}/snapshots/{snapshotId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // Part 8.5 - manually entered TikTok/Instagram numbers. Fully owner-managed;
+    // no external API and no quota cost, so clients may write directly.
+    match /users/{userId}/cross_platform_posts/{postId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    /* -------------------------------------------------- shared read-only */
+
+    // Cached public channel metadata. Any signed-in user may read; only the
+    // server writes, so a client can't poison the cache to skip a refresh.
+    match /channels/{channelId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Shared competitor-discovery cache keyed by keyword hash, not by user.
+    // Readable by any signed-in user by design - that sharing is what keeps
+    // search.list (100 units of a ~10,000/day app-wide budget) from being spent
+    // once per creator in the same niche.
+    match /niche_cache/{keywordHash} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    /* ----------------------------------------------------- server-only */
+
+    // Quota ledger. No client read either: exposing remaining budget would tell
+    // an abuser exactly when the app is close to its cap.
+    match /quota_usage/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /quota_history/{document=**} {
+      allow read, write: if false;
+    }
+
+    /* --------------------------------------------------------- default */
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
