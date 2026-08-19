@@ -72,13 +72,42 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --viz-series: #3987e5;
   /* Data-visualisation series colour. Validated against both surfaces: inside the
      lightness band, above the chroma floor, and over 3:1 contrast in light AND
      dark, which is why the same value is used in both themes. The preset's
      --chart-* steps are greyscale and carry no chroma, so they are not usable as
      a data mark. */
-  --viz-series: #3987e5;
+  --viz-series: #3987e5; /* oklch(0.622 0.161 255) */
+
+  /* Categorical accent slots, assigned IN ORDER. Chosen by constrained search,
+     not by eye: in sRGB gamut, chroma at least 0.10, at least 3:1 contrast
+     against BOTH card surfaces (white and oklch(0.205 0 0)) so a single value
+     serves both themes, and at least 40 degrees of hue between any two.
+     Separation was then maximised in oklab under normal, protanopic,
+     deuteranopic and tritanopic vision. Worst case across all 15 pairs and all
+     four vision types is dE 0.084; CONSECUTIVE slots never fall below 0.118,
+     which is why order is the safety mechanism and slots are filled 1, 2, 3...
+     rather than picked to taste. No slot sits within 32 degrees of --viz-critical:
+     a red hairline on a merely neutral metric reads as an alarm, so the whole
+     alarm band is excluded from the categorical set. Do not add a slot 7 or nudge
+     a hue without re-running that search: the guarantee is the set, not the
+     individual value. */
+  --viz-1: var(--viz-series); /* blue, slot 1 IS the series colour so a tile and
+                                 its chart line cannot drift apart */
+  --viz-2: oklch(0.564 0.132 60); /* amber  #ac5f01 */
+  --viz-3: oklch(0.534 0.240 300); /* violet #8633df */
+  --viz-4: oklch(0.552 0.116 165); /* teal   #008761 */
+  --viz-5: oklch(0.654 0.164 125); /* green  #7aa001 */
+  --viz-6: oklch(0.588 0.240 340); /* rose   #d01ea8 */
+
+  /* Semantic, not categorical: these three encode a judgement, so they are never
+     used as chart series. Red and green collapse under deuteranopia (dE 0.027 on
+     the obvious pair), so the trio separates by lightness as well as hue, getting
+     the worst case to 0.094. That is still modest, which is why every use pairs
+     the colour with a glyph or a word. Colour must not be the only carrier. */
+  --viz-good: oklch(0.500 0.156 145); /* #03791f */
+  --viz-warning: oklch(0.672 0.140 75); /* #c78709 */
+  --viz-critical: oklch(0.572 0.232 25); /* #e00025 */
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);

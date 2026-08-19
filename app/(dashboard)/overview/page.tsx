@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { Clock, Eye, Play, Users } from "lucide-react";
+import {
+  Clock,
+  Eye,
+  MessageSquare,
+  Play,
+  ThumbsUp,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/dashboard/stat-tile";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { TrendChart } from "@/components/charts/trend-chart";
+import { TrendPanel } from "@/components/dashboard/trend-panel";
 import { requireUser } from "@/lib/auth/session";
 import { getLatestSnapshot, getUserProfile } from "@/lib/firebase/firestore";
 import {
@@ -83,6 +91,8 @@ export default async function OverviewPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
+          icon={Users}
+          accent={1}
           label="Subscribers"
           value={
             channel.subscriberCountHidden ? "Hidden" : formatCount(channel.subscriberCount)
@@ -99,16 +109,22 @@ export default async function OverviewPage() {
           }
         />
         <StatTile
+          icon={Eye}
+          accent={3}
           label="Lifetime views"
           value={formatCount(channel.viewCount)}
           hint={formatNumber(channel.viewCount) + " total"}
         />
         <StatTile
+          icon={TrendingUp}
+          accent={2}
           label="Views (28 days)"
           value={formatCount(analytics?.views ?? 0)}
           hint={analytics ? formatNumber(analytics.views) + " in period" : "No analytics yet"}
         />
         <StatTile
+          icon={Play}
+          accent={5}
           label="Watch time"
           value={
             analytics ? formatCount(analytics.estimatedMinutesWatched) + " min" : "0 min"
@@ -122,24 +138,14 @@ export default async function OverviewPage() {
       </section>
 
       {analytics && analytics.daily.length > 0 && (
-        <section className="bg-card rounded-xl border p-4 sm:p-6">
-          <div className="mb-4 flex items-baseline justify-between gap-4">
-            <div>
-              <h2 className="text-sm font-medium">Daily views</h2>
-              <p className="text-muted-foreground mt-0.5 text-xs">
-                {analytics.daily.length} days to {analytics.dateRange.endDate}
-              </p>
-            </div>
-            <p className="text-muted-foreground text-xs">
-              {formatNumber(analytics.views)} total
-            </p>
-          </div>
-          <TrendChart
-            data={analytics.daily.map((d) => ({ date: d.date, value: d.views }))}
-            label="Views"
-            format="compact"
-          />
-        </section>
+        <TrendPanel
+          title="Daily views"
+          cached={analytics}
+          metric="views"
+          label="Views"
+          format="compact"
+          exportName="viewly-overview-views"
+        />
       )}
 
       <section>
@@ -189,10 +195,10 @@ export default async function OverviewPage() {
                   <Metric icon={<Eye className="size-3.5" />} label="views">
                     {formatCount(video.viewCount ?? 0)}
                   </Metric>
-                  <Metric icon={<Users className="size-3.5" />} label="likes">
+                  <Metric icon={<ThumbsUp className="size-3.5" />} label="likes">
                     {formatCount(video.likeCount ?? 0)}
                   </Metric>
-                  <Metric icon={<Play className="size-3.5" />} label="comments">
+                  <Metric icon={<MessageSquare className="size-3.5" />} label="comments">
                     {formatCount(video.commentCount ?? 0)}
                   </Metric>
                 </dl>

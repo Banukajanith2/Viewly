@@ -1,9 +1,20 @@
 import type { Metadata } from "next";
+import type { LucideIcon } from "lucide-react";
+import {
+  Activity,
+  CalendarDays,
+  Clock3,
+  Eye,
+  Gauge,
+  Repeat,
+  TrendingUp,
+  UserPlus,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { StatTile } from "@/components/dashboard/stat-tile";
+import { StatTile, type Accent } from "@/components/dashboard/stat-tile";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { DownloadButton } from "@/components/dashboard/download-button";
-import { TrendChart } from "@/components/charts/trend-chart";
+import { TrendPanel } from "@/components/dashboard/trend-panel";
 import { BarChart } from "@/components/charts/bar-chart";
 import { requireUser } from "@/lib/auth/session";
 import { getLatestSnapshot, getUserProfile } from "@/lib/firebase/firestore";
@@ -110,6 +121,8 @@ export default async function AnalyticsPage() {
           the number is the visualisation. */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
+          icon={Eye}
+          accent={1}
           label="Views"
           value={formatCount(analytics.views)}
           hint={formatNumber(analytics.views) + " in period"}
@@ -123,11 +136,15 @@ export default async function AnalyticsPage() {
           }
         />
         <StatTile
+          icon={Clock3}
+          accent={3}
           label="Watch time"
           value={formatCount(analytics.estimatedMinutesWatched) + " min"}
           hint={`${formatDuration(analytics.averageViewDuration)} average view`}
         />
         <StatTile
+          icon={Gauge}
+          accent={5}
           label="Average view"
           value={
             analytics.averageViewPercentage > 0
@@ -137,6 +154,8 @@ export default async function AnalyticsPage() {
           hint="Share of each video actually watched"
         />
         <StatTile
+          icon={UserPlus}
+          accent={2}
           label="Net subscribers"
           value={formatNumber(analytics.subscribersGained - analytics.subscribersLost)}
           hint={`+${formatNumber(analytics.subscribersGained)} gained, -${formatNumber(analytics.subscribersLost)} lost`}
@@ -147,32 +166,26 @@ export default async function AnalyticsPage() {
         />
       </section>
 
-      {/* Two one-axis charts, never one chart with two scales. */}
+      {/* Two one-axis charts, never one chart with two scales. Each filters
+          independently, since a creator often wants a long view of watch time and a
+          short view of views at the same time. */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <ChartCard
+        <TrendPanel
           title="Daily views"
-          subtitle={`${formatNumber(analytics.views)} total`}
-        >
-          <TrendChart
-            data={analytics.daily.map((d) => ({ date: d.date, value: d.views }))}
-            label="Views"
-            format="compact"
-          />
-        </ChartCard>
-
-        <ChartCard
+          cached={analytics}
+          metric="views"
+          label="Views"
+          format="compact"
+          exportName="viewly-views"
+        />
+        <TrendPanel
           title="Daily watch time"
-          subtitle={`${formatNumber(analytics.estimatedMinutesWatched)} minutes total`}
-        >
-          <TrendChart
-            data={analytics.daily.map((d) => ({
-              date: d.date,
-              value: Math.round(d.watchTimeMinutes),
-            }))}
-            label="Minutes"
-            format="minutes"
-          />
-        </ChartCard>
+          cached={analytics}
+          metric="watchTimeMinutes"
+          label="Minutes"
+          format="minutes"
+          exportName="viewly-watch-time"
+        />
       </div>
 
       {/* Derived insights: the numbers a creator would otherwise work out by hand. */}
@@ -180,6 +193,8 @@ export default async function AnalyticsPage() {
         <h2 className="mb-3 text-sm font-medium">What the numbers say</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <InsightCard
+            icon={TrendingUp}
+            accent={2}
             title="Momentum"
             value={
               week?.change !== null && week
@@ -193,6 +208,8 @@ export default async function AnalyticsPage() {
             }
           />
           <InsightCard
+            icon={Repeat}
+            accent={3}
             title="Upload rhythm"
             value={cadence ? describeConsistency(cadence) : "Not enough uploads"}
             body={
@@ -202,6 +219,8 @@ export default async function AnalyticsPage() {
             }
           />
           <InsightCard
+            icon={UserPlus}
+            accent={5}
             title="Subscriber conversion"
             value={conversion !== null ? conversion.toFixed(1) + " / 1k" : "No views yet"}
             body={
@@ -211,6 +230,8 @@ export default async function AnalyticsPage() {
             }
           />
           <InsightCard
+            icon={CalendarDays}
+            accent={4}
             title="Best publishing day"
             value={bestDay ? bestDay.day : "Not enough of a pattern"}
             body={
@@ -220,11 +241,15 @@ export default async function AnalyticsPage() {
             }
           />
           <InsightCard
+            icon={Activity}
+            accent={1}
             title="Typical video"
             value={formatCount(Math.round(averages.medianViews))}
             body={`Median views across your last ${averages.videoCount} uploads. The median is used rather than the mean so one breakout does not make everything else look like a failure. Mean is ${formatCount(Math.round(averages.meanViews))}.`}
           />
           <InsightCard
+            icon={Gauge}
+            accent={6}
             title="Retention"
             value={
               analytics.averageViewPercentage > 0
@@ -320,44 +345,57 @@ export default async function AnalyticsPage() {
   );
 }
 
-function ChartCard({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="bg-card rounded-xl border p-4 sm:p-6">
-      <div className="mb-4 flex items-baseline justify-between gap-4">
-        <h2 className="text-sm font-medium">{title}</h2>
-        <p className="text-muted-foreground text-xs">{subtitle}</p>
-      </div>
-      {children}
-    </section>
-  );
-}
-
+/**
+ * One derived insight. Same colour discipline as the stat tiles: the accent lives
+ * in the icon chip and a left rule, never in the value or the explanation.
+ */
 function InsightCard({
   title,
   value,
   body,
+  icon: Icon,
+  accent,
 }: {
   title: string;
   value: string;
   body: string;
+  icon: LucideIcon;
+  accent: Accent;
 }) {
+  const color = ACCENT_VARS[accent];
+
   return (
-    <div className="bg-card rounded-xl border p-4 sm:p-5">
-      <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-        {title}
-      </p>
-      <p className="mt-1.5 text-lg font-semibold">{value}</p>
+    <div className="group bg-card hover:border-foreground/15 relative overflow-hidden rounded-xl border p-4 transition-all hover:shadow-sm sm:p-5">
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-0.5 opacity-70 transition-opacity group-hover:opacity-100"
+        style={{ backgroundColor: color }}
+      />
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+          {title}
+        </p>
+        <span
+          aria-hidden
+          className="flex size-7 shrink-0 items-center justify-center rounded-lg"
+          style={{ backgroundColor: `color-mix(in oklab, ${color} 14%, transparent)` }}
+        >
+          <Icon className="size-3.5" style={{ color }} />
+        </span>
+      </div>
+      <p className="mt-1.5 text-lg font-semibold tracking-tight">{value}</p>
       <p className="text-muted-foreground mt-2 text-xs leading-relaxed text-pretty">
         {body}
       </p>
     </div>
   );
 }
+
+const ACCENT_VARS: Record<Accent, string> = {
+  1: "var(--viz-1)",
+  2: "var(--viz-2)",
+  3: "var(--viz-3)",
+  4: "var(--viz-4)",
+  5: "var(--viz-5)",
+  6: "var(--viz-6)",
+};

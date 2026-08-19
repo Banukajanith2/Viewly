@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Flame, Users } from "lucide-react";
+import { Flame, Medal, Radar, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/dashboard/stat-tile";
 import { EmptyState } from "@/components/dashboard/empty-state";
@@ -141,21 +141,29 @@ export default async function CompetitorsPage() {
         <>
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatTile
+              icon={Radar}
+              accent={1}
               label="Tracked peers"
               value={formatNumber(candidates.length)}
               hint="Active channels in your subscriber band"
             />
             <StatTile
+              icon={Flame}
+              accent={2}
               label="Breakouts"
               value={formatNumber(breakouts.length)}
               hint="Latest upload beating their own average by 2.5x"
             />
             <StatTile
+              icon={Medal}
+              accent={4}
               label="Your rank"
               value={`#${ownRank} of ${candidates.length + 1}`}
               hint="By average views per upload"
             />
             <StatTile
+              icon={Users}
+              accent={3}
               label="Peer median size"
               value={formatCount(medianOf(candidates.map((c) => c.subscriberCount)))}
               hint={`You have ${formatCount(own.subscriberCount)} subscribers`}

@@ -6,7 +6,12 @@ import { protectedRoute } from "@/lib/utils/api";
 
 export const runtime = "nodejs";
 
-const MAX_DAYS = 365;
+/**
+ * Ten years, which is effectively "all time" for a YouTube channel. The ceiling is
+ * not the cost control: one reports.query costs the same whatever range it covers,
+ * so the real limit is ANALYTICS_DAILY_CAP per user, checked below.
+ */
+const MAX_DAYS = 3650;
 
 /**
  * GET /api/channel/analytics?days=28&live=1
