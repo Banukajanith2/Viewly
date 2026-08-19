@@ -22,6 +22,7 @@ import {
   getGlobalUsageToday,
   getUserUsageToday,
   hasSearchBudget,
+  remainingUnits,
   secondsUntilQuotaReset,
 } from "@/lib/quota/tracker";
 
@@ -36,6 +37,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export type RateLimitReason =
   | "discovery_cooldown"
   | "global_search_budget"
+  | "global_quota_exhausted"
   | "analytics_daily_cap";
 
 export type RateLimitResult =
@@ -147,6 +149,25 @@ export async function canUserCallAnalytics(userId: string): Promise<boolean> {
  * halfway, having already spent the budget on an answer nobody receives. Callers
  * size the batch to what is actually affordable instead.
  */
+/**
+ * Guards an ordinary 1 unit Data API call against a genuinely exhausted budget.
+ *
+ * Deliberately NOT the search safety margin. That margin exists to hold units back
+ * FOR cheap calls like this one, so refusing a 1 unit request at 80% would enforce
+ * the reserve against the very thing it is reserving for. This only refuses when
+ * there is truly nothing left.
+ */
+export async function assertDataApiBudget(cost = 1): Promise<void> {
+  const usage = await getGlobalUsageToday();
+  if (remainingUnits(usage) < cost) {
+    throw new QuotaExceededError(
+      "global_quota_exhausted",
+      "The app's shared YouTube quota is spent for today. It resets at midnight UTC.",
+      secondsUntilQuotaReset(),
+    );
+  }
+}
+
 export async function remainingAnalyticsCalls(userId: string): Promise<number> {
   const usage = await getUserUsageToday(userId);
   return Math.max(0, ANALYTICS_DAILY_CAP - usage.reportsQueryCalls);

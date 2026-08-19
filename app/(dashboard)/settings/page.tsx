@@ -11,8 +11,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { RevokeAccessButton } from "@/components/settings/youtube-connection";
+import { RegionSelector } from "@/components/settings/region-selector";
 import { requireUser } from "@/lib/auth/session";
-import { getUserProfile, getYouTubeToken } from "@/lib/firebase/firestore";
+import { getLatestSnapshot, getUserProfile, getYouTubeToken } from "@/lib/firebase/firestore";
+import { isSupportedRegion, resolveRegion } from "@/lib/youtube/regions";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -47,11 +49,15 @@ const CALLBACK_MESSAGES: Record<string, { title: string; body: string; ok: boole
 
 export default async function SettingsPage({ searchParams }: PageProps<"/settings">) {
   const user = await requireUser();
-  const [profile, token, params] = await Promise.all([
+  const [profile, token, snapshot, params] = await Promise.all([
     getUserProfile(user.uid),
     getYouTubeToken(user.uid),
+    getLatestSnapshot(user.uid),
     searchParams,
   ]);
+
+  // The channel's own country is the fallback when no region has been chosen.
+  const channelCountry = snapshot?.channel.country ?? null;
 
   const flag = typeof params.youtube === "string" ? params.youtube : undefined;
   const callback = flag ? CALLBACK_MESSAGES[flag] : undefined;
@@ -141,6 +147,25 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
             </Link>
             .
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Part 8.2. Sits in settings rather than on the trending view because it
+          changes what several pages query, not just the one you happen to be on. */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Region</CardTitle>
+          <CardDescription>
+            Which country&rsquo;s trending chart and keyword suggestions Viewly shows
+            you.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RegionSelector
+            current={resolveRegion(profile?.homeRegion, channelCountry)}
+            isExplicit={isSupportedRegion(profile?.homeRegion)}
+            channelCountry={channelCountry}
+          />
         </CardContent>
       </Card>
     </div>

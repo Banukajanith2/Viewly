@@ -70,6 +70,20 @@ export interface VideoSummary {
   durationSeconds?: number;
 }
 
+/**
+ * A video on SOMEONE ELSE'S channel (Part 8.2 trending).
+ *
+ * Separate from VideoSummary because that type describes the user's own uploads,
+ * where the channel is implied. A trending entry is only useful with the channel
+ * attached, and widening VideoSummary would make those fields optional everywhere
+ * they are actually guaranteed.
+ */
+export interface TrendingVideo extends VideoSummary {
+  channelId: string;
+  channelTitle: string;
+  description?: string;
+}
+
 /* -------------------------------------------------------------- analytics */
 
 export interface DateRange {

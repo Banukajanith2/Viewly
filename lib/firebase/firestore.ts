@@ -80,7 +80,11 @@ export async function upsertUserProfile(
       createdAt: new Date().toISOString(),
       trackedCompetitorIds: [],
       lastDiscoveryRunAt: null,
-      homeRegion: data.homeRegion ?? "US",
+      // homeRegion is deliberately NOT defaulted here. Writing "US" at creation
+      // would make "never chose a region" indistinguishable from "chose the United
+      // States", and the channel's own country is a far better answer than either.
+      // resolveRegion() picks it up at read time instead (Part 8.2).
+      ...(data.homeRegion ? { homeRegion: data.homeRegion } : {}),
     };
     await ref.set(profile);
     return;
@@ -94,6 +98,17 @@ export async function upsertUserProfile(
     },
     { merge: true },
   );
+}
+
+/**
+ * Sets the creator's home region (Part 8.2).
+ *
+ * Separate from upsertUserProfile, which runs on every sign-in: folding this in
+ * would mean a login could silently overwrite a choice the user made on purpose,
+ * the same reason that function does not touch lastDiscoveryRunAt.
+ */
+export async function setHomeRegion(userId: string, region: string): Promise<void> {
+  await db().doc(paths.user(userId)).set({ homeRegion: region.toUpperCase() }, { merge: true });
 }
 
 export async function setUserChannel(

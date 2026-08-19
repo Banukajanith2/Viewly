@@ -120,6 +120,8 @@ export const cacheKeys = {
   nicheCache: (keywordHash: string) => `niche:${keywordHash}`,
   quotaStatus: () => "quota:status",
   retention: (userId: string) => `retention:${userId}`,
+  /** Keyed by REGION, not by user: the chart is identical for everyone there. */
+  trending: (region: string) => `trending:${region.toUpperCase()}`,
 } as const;
 
 /** Dashboard snapshots change once a day, so hours of staleness cost nothing. */
@@ -138,4 +140,10 @@ export const TTL = {
    * is cumulative over a video's whole life and barely moves between mornings.
    */
   retention: 24 * 60 * 60,
+  /**
+   * Trending moves through the day but not by the minute, and this is shared by
+   * every creator in the region, so three hours keeps it current for a cost of a
+   * handful of units a day across the whole app.
+   */
+  trending: 3 * 60 * 60,
 } as const;

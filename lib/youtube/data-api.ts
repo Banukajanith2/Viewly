@@ -20,7 +20,7 @@ import "server-only";
 import { google, type youtube_v3 } from "googleapis";
 import { getCachedChannel, setCachedChannel } from "@/lib/firebase/firestore";
 import { recordCall } from "@/lib/quota/tracker";
-import type { ChannelStats, VideoSummary } from "@/types/youtube";
+import type { ChannelStats, TrendingVideo, VideoSummary } from "@/types/youtube";
 
 /** playlistItems.list and videos.list both cap at 50 results per call. */
 const MAX_RESULTS_PER_CALL = 50;
@@ -256,4 +256,49 @@ export async function attachVideoStats(
 
   // Preserve the playlist's newest-first ordering rather than the API's.
   return videos.map((v) => byId.get(v.videoId) ?? v);
+}
+
+/* --------------------------------------------------------- regional focus */
+
+/**
+ * What is trending in a specific region (Part 8.2).
+ *
+ * videos.list with chart=mostPopular costs 1 unit, the same as any other
+ * videos.list, and returns the region's own chart. This is the entire point of
+ * Part 8.2: the API defaults to US results when regionCode is omitted, so a
+ * creator in Colombo would otherwise be shown what is popular in California.
+ *
+ * Deliberately NOT search.list. Trending is available on a 1 unit call, and
+ * spending 100 units of an app-wide budget to approximate it would be indefensible.
+ */
+export async function getTrendingVideos(
+  userId: string,
+  regionCode: string,
+  maxResults = 20,
+  videoCategoryId?: string,
+): Promise<TrendingVideo[]> {
+  const res = await dataApi().videos.list({
+    part: ["snippet", "statistics", "contentDetails"],
+    chart: "mostPopular",
+    regionCode: regionCode.toUpperCase(),
+    maxResults: Math.min(maxResults, MAX_RESULTS_PER_CALL),
+    ...(videoCategoryId ? { videoCategoryId } : {}),
+  });
+  await recordCall("videos.list", userId);
+
+  return (res.data.items ?? []).map((item) => ({
+    videoId: item.id ?? "",
+    title: item.snippet?.title ?? "",
+    description: item.snippet?.description ?? "",
+    publishedAt: item.snippet?.publishedAt ?? "",
+    thumbnailUrl:
+      item.snippet?.thumbnails?.medium?.url ?? item.snippet?.thumbnails?.default?.url ?? "",
+    channelId: item.snippet?.channelId ?? "",
+    channelTitle: item.snippet?.channelTitle ?? "",
+    tags: item.snippet?.tags ?? [],
+    viewCount: toNumber(item.statistics?.viewCount),
+    likeCount: toNumber(item.statistics?.likeCount),
+    commentCount: toNumber(item.statistics?.commentCount),
+    durationSeconds: parseDuration(item.contentDetails?.duration),
+  }));
 }

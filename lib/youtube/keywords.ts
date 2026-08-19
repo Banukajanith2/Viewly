@@ -95,7 +95,20 @@ export function extractKeywords(videos: VideoSummary[], limit = 10): string[] {
  * every letter, so the query would be five hashtags picked by nothing but ASCII.
  * Frequency is the signal that actually describes what the channel is about.
  */
-export function rankKeywordsByFrequency(raw: string[]): string[] {
+export interface RankedKeyword {
+  keyword: string;
+  /** How many source strings the term appeared in. */
+  count: number;
+}
+
+/**
+ * The same ranking, with the counts kept.
+ *
+ * The keyword inspector shows how often each term is used, and a bare ordering
+ * cannot answer that. Ranking lives here once and rankKeywordsByFrequency drops the
+ * counts, rather than two functions each deciding what "most frequent" means.
+ */
+export function rankKeywordsWithCounts(raw: string[]): RankedKeyword[] {
   const counts = new Map<string, number>();
 
   for (const entry of raw) {
@@ -108,7 +121,21 @@ export function rankKeywordsByFrequency(raw: string[]): string[] {
 
   return [...counts.entries()]
     .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))
-    .map(([word]) => word);
+    .map(([keyword, count]) => ({ keyword, count }));
+}
+
+export function rankKeywordsByFrequency(raw: string[]): string[] {
+  return rankKeywordsWithCounts(raw).map((k) => k.keyword);
+}
+
+/**
+ * Ranked terms straight from a set of uploads, counts included.
+ *
+ * Uses the same top-N-by-views sample as extractSearchTerms, so the inspector shows
+ * the terms discovery would actually search on rather than a different list.
+ */
+export function rankVideoKeywords(videos: VideoSummary[], limit = 10): RankedKeyword[] {
+  return rankKeywordsWithCounts(topVideoStrings(videos, limit));
 }
 
 /** Raw title and tag strings from the top N most-viewed uploads. */
