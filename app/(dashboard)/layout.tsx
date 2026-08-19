@@ -26,13 +26,18 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
 
   return (
     <>
-      <div className="flex min-h-svh flex-1">
+      {/* Fixed viewport frame. The rail and header never move; only the column
+          on the right scrolls. h-svh rather than h-screen so mobile browser
+          chrome does not push the bottom of the page out of reach. */}
+      <div className="flex h-svh overflow-hidden">
         <DashboardNav />
 
         {/* min-w-0 matters: without it a wide table or chart inside a flex child
             refuses to shrink and pushes the whole page into a horizontal scroll. */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="border-b">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* shrink-0 keeps the header at its natural height instead of being
+              compressed by the scrolling region below it. */}
+          <header className="bg-background shrink-0 border-b">
             <div className="flex w-full items-center justify-between gap-4 px-6 py-3">
               {/* Hidden on md+ because the rail shows the mark there. The rail is
                   hidden below md, so this is the only wordmark on small screens. */}
@@ -55,11 +60,15 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
             </div>
           </header>
 
-          <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
-            <QuotaBanner status={quota} />
-            <PageTransition>{children}</PageTransition>
-          </main>
-          <SiteFooter />
+          {/* The only scrolling element. The footer lives inside it, so it sits
+              after the content rather than being pinned to the viewport. */}
+          <div className="flex flex-1 flex-col overflow-y-auto">
+            <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+              <QuotaBanner status={quota} />
+              <PageTransition>{children}</PageTransition>
+            </main>
+            <SiteFooter />
+          </div>
         </div>
       </div>
     </>
