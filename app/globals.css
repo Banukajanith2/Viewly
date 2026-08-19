@@ -105,6 +105,18 @@
      the obvious pair), so the trio separates by lightness as well as hue, getting
      the worst case to 0.094. That is still modest, which is why every use pairs
      the colour with a glyph or a word. Colour must not be the only carrier. */
+  /* Motion. One set of curves so everything accelerates alike, which is most of
+     what makes an interface feel considered rather than merely animated.
+     SMOOTH decelerates hard and never overshoots, so it is what size and position
+     use: a panel that springs past its width and settles reads as a glitch.
+     SPRING overshoots slightly and is reserved for things with no layout
+     consequence, like an icon or a badge appearing. */
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+  --duration-slow: 380ms;
+
   --viz-good: oklch(0.500 0.156 145); /* #03791f */
   --viz-warning: oklch(0.672 0.140 75); /* #c78709 */
   --viz-critical: oklch(0.572 0.232 25); /* #e00025 */
@@ -120,22 +132,32 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  /* Surfaces are near-neutral with only a trace of cool chroma (0.006 to 0.012).
+     Deliberately not a saturated navy: this is an analytics tool, the accents are
+     the only thing carrying meaning, and a strongly hued ground competes with the
+     data marks it sits behind.
+     The page is meaningfully DARKER than the card, so cards lift off it without
+     needing a heavy border. Card lightness moved from 0.205 down to 0.185, which
+     only raises contrast for every accent, and the palette was re-validated
+     against this exact value: the worst case is --viz-3 at 3.16 against 3.0
+     required, and muted-foreground clears text contrast at 7.19. Do not lighten
+     this surface without re-running that check. */
+  --background: oklch(0.132 0.008 265);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: oklch(0.185 0.010 265);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --popover: oklch(0.196 0.010 265);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  --secondary: oklch(0.258 0.011 265);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
+  --muted: oklch(0.258 0.011 265);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --accent: oklch(0.268 0.012 265);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
   --chart-1: oklch(0.87 0 0);
@@ -154,6 +176,19 @@
 }
 
 @layer base {
+  /* Anyone who has asked for less motion gets none of it, rather than a shorter
+     version. Reduced motion is a request to stop, not to hurry. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
