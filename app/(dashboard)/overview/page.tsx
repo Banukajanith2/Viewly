@@ -65,17 +65,20 @@ export default async function OverviewPage() {
   return (
     <div className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{channel.title}</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Synced {formatRelativeTime(snapshot.syncedAt)}
-            {analytics && (
-              <>
-                {" · "}
-                {analytics.dateRange.startDate} to {analytics.dateRange.endDate}
-              </>
-            )}
-          </p>
+        <div className="flex items-center gap-3">
+          <ChannelAvatar title={channel.title} src={channel.thumbnailUrl} />
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">{channel.title}</h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Synced {formatRelativeTime(snapshot.syncedAt)}
+              {analytics && (
+                <>
+                  {" · "}
+                  {analytics.dateRange.startDate} to {analytics.dateRange.endDate}
+                </>
+              )}
+            </p>
+          </div>
         </div>
         {channel.country && <Badge variant="outline">{channel.country}</Badge>}
       </header>
@@ -214,6 +217,41 @@ export default async function OverviewPage() {
         YouTube quota.
       </p>
     </div>
+  );
+}
+
+/**
+ * The channel's YouTube avatar.
+ *
+ * Falls back to the initial rather than a broken image or a blank circle. The URL
+ * comes from the daily snapshot, and a snapshot written before this field was
+ * captured simply will not have one, so the absent case is ordinary rather than
+ * exceptional and must look deliberate.
+ *
+ * Marked priority: it sits at the top of the page and is the one image above the
+ * fold, so lazy-loading it would show the fallback and then swap.
+ */
+function ChannelAvatar({ title, src }: { title: string; src?: string }) {
+  if (!src) {
+    return (
+      <div
+        aria-hidden
+        className="bg-muted text-muted-foreground flex size-12 shrink-0 items-center justify-center rounded-full text-lg font-semibold"
+      >
+        {title.trim().charAt(0).toUpperCase() || "?"}
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      alt=""
+      width={48}
+      height={48}
+      priority
+      className="size-12 shrink-0 rounded-full object-cover"
+    />
   );
 }
 
