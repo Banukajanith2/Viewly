@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { ViewlyMark } from "@/components/layout/viewly-mark";
+import { GithubMark, REPO_URL } from "@/components/layout/author-credit";
 import { Reveal, RevealGroup, RevealItem } from "@/components/marketing/reveal";
 import {
   CompetitorsMockup,
@@ -157,26 +158,40 @@ function SiteHeader({ signedIn }: { signedIn: boolean }) {
           </a>
         </nav>
 
-        {/* Signed in, the only useful action is the dashboard. Signed out, sign-in
-            and sign-up are the same screen, so they are offered as two entries to
-            the one flow rather than pretending to be separate pages. */}
-        {signedIn ? (
-          <Button asChild size="sm" className="gap-1.5">
-            <Link href="/overview">
-              Creator Dashboard
-              <ArrowRight className="size-3.5" />
-            </Link>
-          </Button>
-        ) : (
-          <div className="flex items-center gap-2">
-            <Button asChild size="sm" variant="ghost">
-              <Link href="/login">Log in</Link>
+        <div className="flex items-center gap-2">
+          {/* Source link. An icon-only control, so it carries an accessible name
+              rather than relying on the mark alone. */}
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Viewly source code on GitHub"
+            className="text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:ring-ring flex size-9 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          >
+            <GithubMark className="size-4.5" />
+          </a>
+
+          {/* Signed in, the only useful action is the dashboard. Signed out,
+              sign-in and sign-up are the same screen, so they are offered as two
+              entries to the one flow rather than pretending to be separate pages. */}
+          {signedIn ? (
+            <Button asChild size="sm" className="gap-1.5">
+              <Link href="/overview">
+                Creator Dashboard
+                <ArrowRight className="size-3.5" />
+              </Link>
             </Button>
-            <Button asChild size="sm">
-              <Link href="/login">Sign up</Link>
-            </Button>
-          </div>
-        )}
+          ) : (
+            <>
+              <Button asChild size="sm" variant="ghost">
+                <Link href="/login">Log in</Link>
+              </Button>
+              <Button asChild size="sm">
+                <Link href="/login">Sign up</Link>
+              </Button>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

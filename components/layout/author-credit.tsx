@@ -10,9 +10,16 @@ import Link from "next/link";
 export const AUTHOR = {
   name: "Banuka Janith",
   portfolio: "https://banukajanith2.github.io/Portfolio/",
-  /** Points at the GitHub profile until the repository is public. */
-  github: "https://github.com/banukajanith2",
 } as const;
+
+/**
+ * The project repository.
+ *
+ * Points at the repo rather than the author profile: someone clicking a GitHub
+ * mark on a product page wants the source of THIS product, not a list of every
+ * other thing its author has written. The author link is the name beside it.
+ */
+export const REPO_URL = "https://github.com/Banukajanith2/Viewly";
 
 /**
  * GitHub mark as inline SVG.
@@ -44,10 +51,10 @@ export function AuthorCredit({ className }: { className?: string }) {
         </Link>
       </span>
       <Link
-        href={AUTHOR.github}
+        href={REPO_URL}
         target="_blank"
         rel="noreferrer"
-        aria-label={`${AUTHOR.name} on GitHub`}
+        aria-label="Viewly source code on GitHub"
         className="hover:text-foreground transition-colors"
       >
         <GithubMark className="size-4" />
