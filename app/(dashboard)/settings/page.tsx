@@ -118,8 +118,15 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
                 {profile?.channelTitle ?? "Linked"}
               </p>
               <div className="flex flex-wrap gap-2">
+                {/* Plain <a>, never next/link. This route 302s to Google's
+                    consent screen, and Link both PREFETCHES it and tries to
+                    navigate client-side: the prefetch follows the redirect to
+                    accounts.google.com, which refuses the cross-origin request,
+                    so the console filled with CORS errors and the endpoint was
+                    hit on hover, minting throwaway state cookies. A full page
+                    navigation is what an OAuth handoff actually needs. */}
                 <Button asChild variant="outline" size="sm">
-                  <Link href="/api/auth/youtube-connect">Reconnect</Link>
+                  <a href="/api/auth/youtube-connect">Reconnect</a>
                 </Button>
                 <RevokeAccessButton />
               </div>
@@ -130,8 +137,9 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
                 Connect your channel to unlock analytics, retention diagnostics, and
                 competitor benchmarking.
               </p>
+              {/* Plain <a>: see the note on Reconnect above. */}
               <Button asChild size="sm">
-                <Link href="/api/auth/youtube-connect">Connect YouTube</Link>
+                <a href="/api/auth/youtube-connect">Connect YouTube</a>
               </Button>
             </>
           )}
