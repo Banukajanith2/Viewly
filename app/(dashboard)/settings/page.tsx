@@ -23,7 +23,15 @@ export const metadata: Metadata = { title: "Settings" };
 const CALLBACK_MESSAGES: Record<string, { title: string; body: string; ok: boolean }> = {
   connected: {
     title: "YouTube connected",
-    body: "Your channel is linked. The first data sync runs with tomorrow's daily job.",
+    body: "Your channel is linked and your first snapshot has already been taken, so your dashboard has data now.",
+    ok: true,
+  },
+  // The link succeeded but the immediate first sync did not. Says so plainly
+  // rather than showing the success copy above and leaving an empty dashboard
+  // to contradict it.
+  connected_pending: {
+    title: "YouTube connected",
+    body: "Your channel is linked, but the first data sync did not complete. It will run automatically with the next daily job, or you can press Reconnect to try again now.",
     ok: true,
   },
   denied: {

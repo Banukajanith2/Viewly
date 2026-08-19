@@ -6,8 +6,12 @@ import { exchangeCodeForTokens, oauth2Client } from "@/lib/youtube/oauth";
 import { saveYouTubeToken, setUserChannel } from "@/lib/firebase/firestore";
 import { recordCall } from "@/lib/quota/tracker";
 import { handleRouteError } from "@/lib/utils/api";
+import { syncUser } from "@/lib/youtube/sync";
 
 export const runtime = "nodejs";
+// The first sync runs inside this request, so it needs more than the Hobby
+// default. 60 is the Hobby ceiling; a sync measured about 6 seconds per channel.
+export const maxDuration = 60;
 
 function settingsRedirect(request: Request, status: string) {
   const url = new URL("/settings", request.url);
@@ -60,7 +64,31 @@ export async function GET(request: Request) {
 
     await setUserChannel(userId, channel.id, channel.snippet?.title ?? "Untitled channel");
 
-    return settingsRedirect(request, "connected");
+    /**
+     * First sync, immediately.
+     *
+     * Without this a creator connects their channel and lands on an empty
+     * dashboard reading "your first sync has not run yet", with no way to do
+     * anything about it until the next scheduled run. Waiting up to 24 hours to
+     * see anything is not a reasonable first impression, and the cron exists to
+     * keep data FRESH, not to decide when a user is allowed to have any.
+     *
+     * Awaited rather than left to run after the response: the redirect is what
+     * takes the user to the dashboard, so the data needs to be there when they
+     * arrive. It costs about 4 units and a few seconds, once per connection.
+     *
+     * Failure is caught and swallowed on purpose. The channel IS linked at this
+     * point, and turning a slow or rate-limited sync into a failed connection
+     * would be a far worse outcome than a dashboard that fills in on the next
+     * run. The user is told which of the two happened.
+     */
+    try {
+      await syncUser(userId, channel.id);
+      return settingsRedirect(request, "connected");
+    } catch (err) {
+      console.error("[auth/youtube-callback] first sync failed:", err);
+      return settingsRedirect(request, "connected_pending");
+    }
   } catch (err) {
     return handleRouteError(err, "auth/youtube-callback");
   }
