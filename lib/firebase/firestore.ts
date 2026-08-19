@@ -283,4 +283,32 @@ export async function addCrossPlatformPost(
   return ref.id;
 }
 
+/**
+ * Every logged post, newest first.
+ *
+ * Ordered by postedAt rather than createdAt: a creator backfilling last month's
+ * TikToks enters them in whatever order they find them, and the list is about when
+ * things were published, not when they were typed in.
+ */
+export async function listCrossPlatformPosts(
+  userId: string,
+  limit = 200,
+): Promise<CrossPlatformPost[]> {
+  const snap = await db()
+    .collection(`users/${userId}/cross_platform_posts`)
+    .orderBy("postedAt", "desc")
+    .limit(limit)
+    .get();
+  return snap.docs.map((d) => d.data() as CrossPlatformPost);
+}
+
+export async function deleteCrossPlatformPost(
+  userId: string,
+  postId: string,
+): Promise<void> {
+  // Scoped under the user's own path, so a mismatched id deletes nothing rather
+  // than reaching another user's document.
+  await db().doc(paths.crossPlatformPost(userId, postId)).delete();
+}
+
 export { FieldValue };

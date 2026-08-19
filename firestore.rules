@@ -48,10 +48,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Part 8.5 - manually entered TikTok/Instagram numbers. Fully owner-managed;
-    // no external API and no quota cost, so clients may write directly.
+    // Part 8.5 - manually entered TikTok/Instagram numbers. Owner-readable, but
+    // written only through the API route. There is no quota reason for that: it is
+    // validation. A direct client write could store a negative view count, a
+    // platform outside the allowed set, or a string where a number belongs, and the
+    // dashboard would then render whatever was put there. Rules cannot express
+    // those checks as clearly as the route can, so the route is the only writer.
     match /users/{userId}/cross_platform_posts/{postId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId);
+      allow write: if false;
     }
 
     /* -------------------------------------------------- shared read-only */
