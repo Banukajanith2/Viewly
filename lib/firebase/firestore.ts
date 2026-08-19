@@ -7,6 +7,7 @@ import "server-only";
  * lib modules go through these helpers rather than hand-writing paths, so a schema
  * change is a single-file edit and firestore.rules can't drift from the code.
  */
+import { createHash } from "node:crypto";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import {
@@ -21,6 +22,7 @@ import type {
   ChannelStats,
   CrossPlatformPost,
   DailySnapshot,
+  FcmTokenDoc,
   NicheCacheDoc,
   UserProfile,
   YouTubeTokenDoc,
@@ -36,6 +38,7 @@ export const paths = {
   quotaUsage: (date: string) => `quota_usage/${date}`,
   quotaUsageUser: (date: string, userId: string) => `quota_usage/${date}/users/${userId}`,
   quotaHistory: (date: string) => `quota_history/${date}`,
+  fcmToken: (userId: string, tokenId: string) => `users/${userId}/fcm_tokens/${tokenId}`,
   crossPlatformPost: (userId: string, postId: string) =>
     `users/${userId}/cross_platform_posts/${postId}`,
   snapshot: (userId: string, date: string) => `users/${userId}/snapshots/${date}`,
@@ -285,6 +288,74 @@ export async function listRecentSnapshots(
     .limit(limit)
     .get();
   return snap.docs.map((d) => d.data() as DailySnapshot).reverse();
+}
+
+/* ------------------------------------------------------------ push tokens */
+
+/**
+ * Stores or refreshes one device's push token (Part 8.4).
+ *
+ * Keyed by a hash of the token rather than a random id, so re-registering the same
+ * browser updates its row instead of accumulating a duplicate on every page load.
+ * FCM hands back the same token for the same device until it rotates.
+ */
+export async function saveFcmToken(
+  userId: string,
+  token: string,
+  userAgent?: string,
+): Promise<string> {
+  const tokenId = createHash("sha256").update(token).digest("hex").slice(0, 32);
+  const now = new Date().toISOString();
+
+  await db()
+    .doc(paths.fcmToken(userId, tokenId))
+    .set(
+      { token, lastSeenAt: now, createdAt: now, ...(userAgent ? { userAgent } : {}) },
+      // merge keeps the original createdAt on a refresh.
+      { merge: true },
+    );
+  return tokenId;
+}
+
+export async function listFcmTokens(userId: string): Promise<FcmTokenDoc[]> {
+  const snap = await db().collection(`users/${userId}/fcm_tokens`).get();
+  return snap.docs.map((d) => d.data() as FcmTokenDoc);
+}
+
+/**
+ * Removes a token by its VALUE.
+ *
+ * Called when FCM reports a token as unregistered, which is how a device that
+ * cleared its site data or uninstalled gets cleaned up. Deriving the id from the
+ * token means the caller does not have to have stored one.
+ */
+export async function deleteFcmTokenByValue(userId: string, token: string): Promise<void> {
+  const tokenId = createHash("sha256").update(token).digest("hex").slice(0, 32);
+  await db().doc(paths.fcmToken(userId, tokenId)).delete();
+}
+
+export async function countFcmTokens(userId: string): Promise<number> {
+  const snap = await db().collection(`users/${userId}/fcm_tokens`).count().get();
+  return snap.data().count;
+}
+
+/** Which competitors this user wants breakout alerts for (Part 8.4). */
+export async function setTrackedCompetitors(
+  userId: string,
+  channelIds: string[],
+): Promise<void> {
+  await db()
+    .doc(paths.user(userId))
+    .set({ trackedCompetitorIds: [...new Set(channelIds)] }, { merge: true });
+}
+
+/** Every user with at least one tracked competitor, for the alert cron. */
+export async function listUsersTrackingCompetitors(): Promise<UserProfile[]> {
+  const snap = await db()
+    .collection("users")
+    .where("trackedCompetitorIds", "!=", [])
+    .get();
+  return snap.docs.map((d) => d.data() as UserProfile);
 }
 
 /* ---------------------------------------------------------- cross-platform */

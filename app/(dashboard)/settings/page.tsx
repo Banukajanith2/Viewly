@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { RevokeAccessButton } from "@/components/settings/youtube-connection";
 import { RegionSelector } from "@/components/settings/region-selector";
+import { PushToggle } from "@/components/settings/push-toggle";
 import { requireUser } from "@/lib/auth/session";
 import { getLatestSnapshot, getUserProfile, getYouTubeToken } from "@/lib/firebase/firestore";
 import { isSupportedRegion, resolveRegion } from "@/lib/youtube/regions";
@@ -147,6 +148,21 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
             </Link>
             .
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Part 8.4. Permission is per browser, so this belongs in settings rather
+          than on the competitors page: it is a property of this device, not of any
+          particular competitor. */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Breakout alerts</CardTitle>
+          <CardDescription>
+            Push notifications when a competitor you track has a video taking off.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PushToggle />
         </CardContent>
       </Card>
 

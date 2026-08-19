@@ -48,6 +48,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Part 8.4 - push registration tokens. Server (Admin SDK) only, like tokens/.
+    // A registration token is a capability: anyone holding one can push a
+    // notification to that device through the project. There is no reason for a
+    // browser to read the list back, so neither read nor write is allowed.
+    match /users/{userId}/fcm_tokens/{tokenId} {
+      allow read, write: if false;
+    }
+
     // Part 8.5 - manually entered TikTok/Instagram numbers. Owner-readable, but
     // written only through the API route. There is no quota reason for that: it is
     // validation. A direct client write could store a negative view count, a

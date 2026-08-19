@@ -197,6 +197,22 @@ export interface UserQuotaUsageDoc {
   totalUnits: number;
 }
 
+/**
+ * users/{userId}/fcm_tokens/{tokenId} - Part 8.4.
+ *
+ * One document per browser or device, keyed by a hash of the registration token.
+ * Server-only: the token is written by the API route, never by the client, and is
+ * never read back to the browser.
+ */
+export interface FcmTokenDoc {
+  /** The FCM registration token itself. */
+  token: string;
+  createdAt: string;
+  /** Refreshed on every re-registration, so stale devices can be pruned. */
+  lastSeenAt: string;
+  userAgent?: string;
+}
+
 /* --------------------------------------------------------- cross-platform */
 
 /** users/{userId}/cross_platform_posts/{postId} - Part 8.5 */

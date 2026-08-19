@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { DownloadButton } from "@/components/dashboard/download-button";
 import { BarChart } from "@/components/charts/bar-chart";
 import { DiscoverButton } from "@/components/competitors/discover-button";
+import { TrackButton } from "@/components/competitors/track-button";
 import { requireUser } from "@/lib/auth/session";
 import {
   getLatestSnapshot,
@@ -69,6 +70,8 @@ export default async function CompetitorsPage() {
   const own = snapshot.channel;
   const ownAverages = channelAverages(snapshot.recentVideos);
   const breakouts = candidates.filter((c) => c.isBreakout);
+  // Part 8.4: which of these the user gets push alerts for.
+  const tracked = new Set(profile.trackedCompetitorIds ?? []);
 
   // Where the user sits among their peers on typical views per upload.
   const ranked = [...candidates].sort((a, b) => b.averageViews - a.averageViews);
@@ -245,6 +248,14 @@ export default async function CompetitorsPage() {
                         Breakout
                       </Badge>
                     )}
+                  </div>
+
+                  <div className="mt-2">
+                    <TrackButton
+                      channelId={c.channelId}
+                      channelTitle={c.title}
+                      tracked={tracked.has(c.channelId)}
+                    />
                   </div>
 
                   <dl className="text-muted-foreground mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">

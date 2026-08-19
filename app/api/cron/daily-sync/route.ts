@@ -9,6 +9,8 @@ import { listUsersWithLinkedChannel, saveSnapshot, todayKey } from "@/lib/fireba
 import { getGlobalUsageToday, remainingUnits } from "@/lib/quota/tracker";
 import { cronRoute } from "@/lib/utils/api";
 import type { DailySnapshot } from "@/types/youtube";
+import { runBreakoutAlerts } from "@/lib/notifications/breakout-run";
+import type { BreakoutRunResult } from "@/lib/notifications/breakout-run";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,14 +72,28 @@ export const GET = cronRoute("cron/daily-sync", async () => {
     }
   }
 
+  // Part 8.4 runs here rather than on its own schedule: Vercel Hobby allows only
+  // two cron entries and both are taken. Ordering is better this way regardless,
+  // because alerts read the snapshots written immediately above. It spends no
+  // YouTube quota, and its own failure must not fail the sync that already
+  // succeeded, so it is caught rather than thrown.
+  let alerts: BreakoutRunResult | { error: string };
+  try {
+    alerts = await runBreakoutAlerts();
+  } catch (err) {
+    console.error("[cron/daily-sync] breakout alerts failed:", err);
+    alerts = { error: err instanceof Error ? err.message : String(err) };
+  }
+
   return NextResponse.json({
-  ok: true,
-  date,
-  totalUsers: users.length,
-  syncedCount: synced.length,
-  failedCount: failed.length,
-  stoppedForBudget,
-  failed,
+    ok: true,
+    date,
+    totalUsers: users.length,
+    syncedCount: synced.length,
+    failedCount: failed.length,
+    stoppedForBudget,
+    failed,
+    alerts,
   });
 });
 
