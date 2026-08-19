@@ -389,28 +389,32 @@ function HowItWorks() {
         <RevealGroup className="mt-14 grid gap-6 md:grid-cols-3">
           {STEPS.map(({ icon: Icon, title, body }, i) => (
             <RevealItem key={title}>
-              <div className="relative h-full">
+              {/* The step number lives INSIDE the card. Sitting outside it, the
+                  card painted over the lower two thirds of the glyph and only a
+                  sliver showed, which read as a rendering fault rather than as a
+                  watermark. overflow-hidden keeps it contained whatever the font
+                  metrics do. */}
+              <div className="bg-card relative h-full overflow-hidden rounded-xl border p-6">
                 <span
                   aria-hidden
-                  className="text-muted-foreground/15 absolute -top-6 right-2 text-6xl font-semibold tabular-nums"
+                  className="text-muted-foreground/15 pointer-events-none absolute top-3 right-4 text-5xl leading-none font-semibold tabular-nums select-none"
                 >
                   {i + 1}
                 </span>
-                <div className="bg-card relative h-full rounded-xl border p-6">
-                  <span
-                    aria-hidden
-                    className="flex size-10 items-center justify-center rounded-lg"
-                    style={{
-                      background: "color-mix(in oklab, var(--viz-series) 14%, transparent)",
-                    }}
-                  >
-                    <Icon className="size-5" style={{ color: "var(--viz-series)" }} />
-                  </span>
-                  <h3 className="mt-4 font-medium">{title}</h3>
-                  <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-                    {body}
-                  </p>
-                </div>
+
+                <span
+                  aria-hidden
+                  className="relative flex size-10 items-center justify-center rounded-lg"
+                  style={{
+                    background: "color-mix(in oklab, var(--viz-series) 14%, transparent)",
+                  }}
+                >
+                  <Icon className="size-5" style={{ color: "var(--viz-series)" }} />
+                </span>
+                <h3 className="relative mt-4 font-medium">{title}</h3>
+                <p className="text-muted-foreground relative mt-2 text-sm leading-relaxed">
+                  {body}
+                </p>
               </div>
             </RevealItem>
           ))}
