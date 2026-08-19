@@ -14,6 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { ViewlyMark } from "@/components/layout/viewly-mark";
 import { cn } from "@/lib/utils";
 
 /**
@@ -153,33 +154,6 @@ export function DashboardNav() {
 
       </motion.div>
     </nav>
-  );
-}
-
-/**
- * Viewly mark.
- *
- * Inline SVG rather than an image file: it is three rectangles, so a network
- * request and a decode would cost more than the markup. It also inherits
- * currentColor, which an <img> could not, so it stays correct in both themes.
- *
- * Matches public/icon-192.png, which is what appears in a push notification. The
- * two are drawn from the same three ascending bars on purpose, so the mark is
- * recognisable in the tray at 16px.
- */
-function ViewlyMark({
-  className,
-  style,
-}: {
-  className?: string;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className} style={style}>
-      <rect x="3" y="14" width="4.5" height="7" rx="1.25" />
-      <rect x="9.75" y="9" width="4.5" height="12" rx="1.25" />
-      <rect x="16.5" y="3" width="4.5" height="18" rx="1.25" />
-    </svg>
   );
 }
 

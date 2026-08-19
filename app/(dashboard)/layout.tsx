@@ -6,8 +6,10 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { QuotaBanner } from "@/components/layout/quota-banner";
+import { ConnectChannelBanner } from "@/components/layout/connect-channel-banner";
 import { getSessionUser } from "@/lib/auth/session";
 import { getQuotaStatus } from "@/lib/quota/status";
+import { getUserProfile } from "@/lib/firebase/firestore";
 
 /**
  * Server-side auth guard for every dashboard route. Rendering is blocked before any
@@ -22,14 +24,30 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
   // Shared budget state, memoised for 60 seconds so this does not cost a Firestore
   // read on every page load. Rendered here rather than per page so a limit that
   // affects everyone is announced everywhere.
-  const quota = await getQuotaStatus();
+  //
+  // The profile is fetched alongside it for the same reason: until a channel is
+  // linked every page is empty for one shared cause, so the prompt to fix it
+  // belongs in the layout rather than repeated on each page.
+  const [quota, profile] = await Promise.all([
+    getQuotaStatus(),
+    getUserProfile(user.uid),
+  ]);
+  const needsChannel = !profile?.channelId;
 
   return (
     <>
-      {/* Fixed viewport frame. The rail and header never move; only the column
-          on the right scrolls. h-svh rather than h-screen so mobile browser
-          chrome does not push the bottom of the page out of reach. */}
-      <div className="flex h-svh overflow-hidden">
+      {/*
+        Fixed viewport frame: the rail and header never move, only the column on
+        the right scrolls.
+
+        `fixed inset-0` rather than `h-svh`. As an ordinary flex child of <body>
+        the frame still participated in page flow, so the document could end up
+        taller than the viewport and the whole thing scrolled, carrying the rail
+        and header away and leaving dead space under the content. Taking it out of
+        flow entirely means nothing it contains can make the page scroll, whatever
+        the shared <body> styles happen to be.
+      */}
+      <div className="fixed inset-0 flex">
         <DashboardNav />
 
         {/* min-w-0 matters: without it a wide table or chart inside a flex child
@@ -65,6 +83,9 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
           <div className="flex flex-1 flex-col overflow-y-auto">
             <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
               <QuotaBanner status={quota} />
+              {/* The banner suppresses itself on Settings, which is where the
+                  connect button already lives. */}
+              {needsChannel && <ConnectChannelBanner />}
               <PageTransition>{children}</PageTransition>
             </main>
             <SiteFooter />
