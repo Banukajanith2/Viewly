@@ -119,6 +119,7 @@ export const cacheKeys = {
   latestSnapshot: (userId: string) => `snapshot:latest:${userId}`,
   nicheCache: (keywordHash: string) => `niche:${keywordHash}`,
   quotaStatus: () => "quota:status",
+  retention: (userId: string) => `retention:${userId}`,
 } as const;
 
 /** Dashboard snapshots change once a day, so hours of staleness cost nothing. */
@@ -131,4 +132,10 @@ export const TTL = {
   niche: 60 * 60,
   /** Short: this is what tells every user the shared budget is gone. */
   quotaStatus: 60,
+  /**
+   * Retention diagnostics cost one analytics call per video, so a page load must
+   * never trigger them. A day of staleness is the right trade: a retention curve
+   * is cumulative over a video's whole life and barely moves between mornings.
+   */
+  retention: 24 * 60 * 60,
 } as const;

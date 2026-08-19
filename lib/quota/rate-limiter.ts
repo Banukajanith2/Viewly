@@ -139,6 +139,19 @@ export async function canUserCallAnalytics(userId: string): Promise<boolean> {
   return (await checkUserAnalytics(userId)).allowed;
 }
 
+/**
+ * How many analytics calls this user has left today.
+ *
+ * Retention diagnostics spend one call per video, so a caller needs to know the
+ * headroom BEFORE it starts: asserting per call would let a five-video batch stop
+ * halfway, having already spent the budget on an answer nobody receives. Callers
+ * size the batch to what is actually affordable instead.
+ */
+export async function remainingAnalyticsCalls(userId: string): Promise<number> {
+  const usage = await getUserUsageToday(userId);
+  return Math.max(0, ANALYTICS_DAILY_CAP - usage.reportsQueryCalls);
+}
+
 export async function assertCanUserCallAnalytics(userId: string): Promise<void> {
   const result = await checkUserAnalytics(userId);
   if (!result.allowed) {
