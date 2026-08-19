@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import {
   ArrowRight,
   BarChart3,
@@ -107,18 +106,27 @@ const STEPS = [
 ];
 
 export default async function HomePage() {
-  if (await getSessionUser()) redirect("/overview");
+  /**
+   * Signed-in visitors are NOT redirected away.
+   *
+   * They used to be, which made the landing page unreachable once you had an
+   * account: you could never read about the product again, and the Home link in
+   * the dashboard rail would have bounced straight back. The page adapts instead,
+   * offering the dashboard where it would otherwise offer sign-up.
+   */
+  const user = await getSessionUser();
+  const signedIn = Boolean(user);
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader signedIn={signedIn} />
 
       <main className="flex-1">
-        <Hero />
+        <Hero signedIn={signedIn} />
         <Features />
         <HowItWorks />
         <Principles />
-        <FinalCta />
+        <FinalCta signedIn={signedIn} />
       </main>
 
       <SiteFooter />
@@ -128,7 +136,7 @@ export default async function HomePage() {
 
 /* ------------------------------------------------------------------ header */
 
-function SiteHeader() {
+function SiteHeader({ signedIn }: { signedIn: boolean }) {
   return (
     <header className="bg-background/80 sticky top-0 z-40 border-b backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-3">
@@ -149,9 +157,26 @@ function SiteHeader() {
           </a>
         </nav>
 
-        <Button asChild size="sm">
-          <Link href="/login">Get started</Link>
-        </Button>
+        {/* Signed in, the only useful action is the dashboard. Signed out, sign-in
+            and sign-up are the same screen, so they are offered as two entries to
+            the one flow rather than pretending to be separate pages. */}
+        {signedIn ? (
+          <Button asChild size="sm" className="gap-1.5">
+            <Link href="/overview">
+              Creator Dashboard
+              <ArrowRight className="size-3.5" />
+            </Link>
+          </Button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Button asChild size="sm" variant="ghost">
+              <Link href="/login">Log in</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link href="/login">Sign up</Link>
+            </Button>
+          </div>
+        )}
       </div>
     </header>
   );
@@ -159,7 +184,7 @@ function SiteHeader() {
 
 /* -------------------------------------------------------------------- hero */
 
-function Hero() {
+function Hero({ signedIn }: { signedIn: boolean }) {
   return (
     <section className="relative overflow-hidden">
       {/* Blurred fields rather than images: nothing to download, and they tint
@@ -197,8 +222,8 @@ function Hero() {
 
           <div className="mt-9 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg" className="gap-1.5">
-              <Link href="/login">
-                Get started
+              <Link href={signedIn ? "/overview" : "/login"}>
+                {signedIn ? "Open your dashboard" : "Get started"}
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
@@ -433,7 +458,7 @@ function Principles() {
 
 /* --------------------------------------------------------------- final cta */
 
-function FinalCta() {
+function FinalCta({ signedIn }: { signedIn: boolean }) {
   return (
     <section className="border-t">
       <div className="mx-auto w-full max-w-6xl px-6 py-20 sm:py-28">
@@ -450,14 +475,16 @@ function FinalCta() {
               style={{ color: "var(--viz-series)" }}
             />
             <h2 className="mt-6 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-              Find out what to change next
+              {signedIn ? "Pick up where you left off" : "Find out what to change next"}
             </h2>
             <p className="text-muted-foreground mx-auto mt-4 max-w-xl text-pretty">
-              Connect your channel and your first snapshot is taken straight away.
+              {signedIn
+                ? "Your dashboard is one click away."
+                : "Connect your channel and your first snapshot is taken straight away."}
             </p>
             <Button asChild size="lg" className="mt-8 gap-1.5">
-              <Link href="/login">
-                Get started
+              <Link href={signedIn ? "/overview" : "/login"}>
+                {signedIn ? "Open your dashboard" : "Get started"}
                 <ArrowRight className="size-4" />
               </Link>
             </Button>

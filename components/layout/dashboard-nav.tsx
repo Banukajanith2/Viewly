@@ -8,6 +8,7 @@ import {
   BarChart3,
   Gauge,
   Hash,
+  Home,
   LayoutGrid,
   Settings,
   Share2,
@@ -60,6 +61,11 @@ const NAV: NavItem[] = [
  * placement is also where people look for it, which matters more than the taxonomy.
  */
 const FOOTER_NAV: NavItem[] = [
+  // Leaves the app for the public site. Safe to sit alongside the dashboard
+  // routes because the active check compares against `${href}/`, which for "/"
+  // is "//" and therefore never matches a real path: Home cannot light up while
+  // you are on Overview.
+  { href: "/", label: "Home", icon: Home, hint: "Back to the public site" },
   { href: "/settings", label: "Settings", icon: Settings, hint: "Account and alerts" },
 ];
 
