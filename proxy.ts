@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE } from "@/lib/auth/session";
+// From cookie-names, NOT from lib/auth/session. That module is marked
+// "server-only" and pulls in the Firebase Admin SDK, neither of which is
+// valid in middleware. Importing it there made every request 500 in
+// production, including static assets, because the proxy runs first.
+import { SESSION_COOKIE } from "@/lib/auth/cookie-names";
 
 /**
  * Edge-of-app request filter (Part 7).
@@ -60,6 +64,11 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Skip static assets and image optimisation: they cannot reach an API route and
-  // running this on every asset request is pure overhead.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // running this on every asset request is pure overhead. The generated icons are
+  // listed too, so a fault in this file can never take down the favicon: while
+  // debugging a production 500 it mattered that /icon.svg failed as well, since a
+  // static asset breaking is what proved the fault was here and not in a page.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.svg).*)",
+  ],
 };

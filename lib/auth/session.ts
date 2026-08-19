@@ -12,9 +12,13 @@ import "server-only";
  * valid session. requireUserId() is the single choke point for that.
  */
 import { cookies } from "next/headers";
+// Re-exported so callers keep one import site, while the names themselves live
+// in a module with no dependencies that proxy.ts can safely import.
+export { SESSION_COOKIE, OAUTH_STATE_COOKIE } from "@/lib/auth/cookie-names";
+import { SESSION_COOKIE } from "@/lib/auth/cookie-names";
 import { adminAuth } from "@/lib/firebase/admin";
 
-export const SESSION_COOKIE = "viewly_session";
+
 
 /** Firebase caps session cookies at 14 days. */
 export const SESSION_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
@@ -24,7 +28,7 @@ export const SESSION_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
  * file because Next validates the exports of route.ts and only recognises route
  * handlers and segment config, so sharing a constant from one is fragile.
  */
-export const OAUTH_STATE_COOKIE = "viewly_oauth_state";
+
 
 export class UnauthorizedError extends Error {
   readonly code = "unauthorized";
