@@ -9,6 +9,14 @@ import "server-only";
  */
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
+import {
+  TTL,
+  cacheKeys,
+  cached,
+  del as cacheDel,
+  get as cacheGet,
+  set as cacheSet,
+} from "@/lib/cache/kv";
 import type {
   ChannelStats,
   CrossPlatformPost,
@@ -130,12 +138,29 @@ export async function deleteYouTubeToken(userId: string): Promise<void> {
 
 /* ------------------------------------------------------------ niche cache */
 
+/**
+ * Two layers of cache in front of one 100 unit API call (Part 7).
+ *
+ * KV answers the hot path without a Firestore read, Firestore holds the 7 day
+ * shared entry, and only a miss on both spends quota. Cross-checking the document's
+ * own expiresAt on every path means a KV entry can never outlive the data it copies.
+ */
 export async function getNicheCache(keywordHash: string): Promise<NicheCacheDoc | null> {
+  const key = cacheKeys.nicheCache(keywordHash);
+
+  const hit = await cacheGet<NicheCacheDoc>(key);
+  if (hit && new Date(hit.expiresAt).getTime() > Date.now()) return hit;
+
   const snap = await db().doc(paths.nicheCache(keywordHash)).get();
   if (!snap.exists) return null;
 
   const doc = snap.data() as NicheCacheDoc;
-  if (new Date(doc.expiresAt).getTime() <= Date.now()) return null; // expired == miss
+  const msLeft = new Date(doc.expiresAt).getTime() - Date.now();
+  if (msLeft <= 0) return null; // expired == miss
+
+  // Never cache for longer than the entry has left to live, or a stale niche could
+  // be served after the document it came from has already expired.
+  await cacheSet(key, doc, Math.min(TTL.niche, Math.floor(msLeft / 1000)));
   return doc;
 }
 
@@ -144,6 +169,13 @@ export async function setNicheCache(
   doc: NicheCacheDoc,
 ): Promise<void> {
   await db().doc(paths.nicheCache(keywordHash)).set(doc);
+
+  const msLeft = new Date(doc.expiresAt).getTime() - Date.now();
+  await cacheSet(
+    cacheKeys.nicheCache(keywordHash),
+    doc,
+    Math.min(TTL.niche, Math.floor(msLeft / 1000)),
+  );
 }
 
 /* --------------------------------------------------------------- channels */
@@ -188,6 +220,9 @@ export async function saveSnapshot(
   snapshot: DailySnapshot,
 ): Promise<void> {
   await db().doc(paths.snapshot(userId, snapshot.date)).set(snapshot);
+  // The sync just produced newer data, so the cached copy is now wrong. Dropping it
+  // rather than overwriting keeps this correct even if the write below fails.
+  await cacheDel(cacheKeys.latestSnapshot(userId));
 }
 
 export async function getSnapshot(
@@ -203,13 +238,25 @@ export async function getSnapshot(
  * cron fires once a day somewhere inside its scheduled hour, so a user loading the
  * dashboard beforehand must still see yesterday's data rather than an empty page.
  */
+/**
+ * Read through KV (Part 7). This is the hottest read in the app: every dashboard
+ * page load calls it, and the underlying document changes once a day. Serving it
+ * from Firestore each time would spend the ~50k/day read budget on data that is
+ * identical for hours.
+ */
 export async function getLatestSnapshot(userId: string): Promise<DailySnapshot | null> {
-  const snap = await db()
-    .collection(`users/${userId}/snapshots`)
-    .orderBy("date", "desc")
-    .limit(1)
-    .get();
-  return snap.empty ? null : (snap.docs[0].data() as DailySnapshot);
+  return cached<DailySnapshot>(
+    cacheKeys.latestSnapshot(userId),
+    TTL.snapshot,
+    async () => {
+      const snap = await db()
+        .collection(`users/${userId}/snapshots`)
+        .orderBy("date", "desc")
+        .limit(1)
+        .get();
+      return snap.empty ? null : (snap.docs[0].data() as DailySnapshot);
+    },
+  );
 }
 
 /** Oldest first, for trend charts. */

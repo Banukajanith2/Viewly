@@ -1,15 +1,31 @@
 "use client"
 
-import { useTheme } from "next-themes"
+import { useEffect, useState } from "react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  // Reads the class the no-flash script already put on <html>, rather than pulling
+  // in a theme library just for this. Starts at "system" so the server render and
+  // the first client render agree.
+  const [theme, setTheme] = useState<ToasterProps["theme"]>("system")
+
+  useEffect(() => {
+    const sync = () =>
+      setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light")
+    sync()
+
+    const observer = new MutationObserver(sync)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    })
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={theme}
       className="toaster group"
       icons={{
         success: (

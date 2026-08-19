@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireUserId } from "@/lib/auth/session";
 import { getUserProfile, markDiscoveryRun } from "@/lib/firebase/firestore";
-import { assertCanUserSearch } from "@/lib/quota/rate-limiter";
+import { invalidateQuotaStatus } from "@/lib/quota/status";
 import { discoverCompetitors, NoKeywordsError } from "@/lib/youtube/competitor-engine";
-import { handleRouteError, jsonError } from "@/lib/utils/api";
+import { jsonError, protectedRoute } from "@/lib/utils/api";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -19,37 +18,32 @@ const allowLiveSearch = process.env.ALLOW_LIVE_SEARCH !== "false";
 /**
  * POST /api/competitors/discover (Part 6)
  *
- * Order of operations is the whole point of this route:
- *   1. Authenticate.
- *   2. Check the rate limiter BEFORE any external work. Rejects inside the 7 day
- *      cooldown, or when today's global search budget is near its ceiling.
- *   3. Run the pipeline, which consults the shared niche cache before spending.
- *   4. Record the run so the cooldown starts.
+ * The only route in the app that can reach search.list, at 100 units of a ~10,000
+ * unit budget shared by every user. `rateLimit: "search"` on the wrapper is what
+ * enforces the 7 day cooldown and the global safety ceiling, and it runs before this
+ * handler is entered, so no external work can happen ahead of the check.
  *
  * The response reports cached versus fresh so the UI can say "last updated 3 days
  * ago, shared with other creators in your niche" rather than implying a live
- * per-user search happened.
+ * per-user search took place.
  */
-export async function POST() {
-  try {
-    const userId = await requireUserId();
-
+export const POST = protectedRoute(
+  "competitors/discover",
+  async ({ userId }) => {
     const profile = await getUserProfile(userId);
     if (!profile?.channelId) {
-      return jsonError(
-        409,
-        "no_channel_linked",
-        "Connect a YouTube channel in settings first.",
-      );
+      return jsonError(409, "no_channel_linked", "Connect a YouTube channel in settings first.");
     }
 
-    // Throws QuotaExceededError, which handleRouteError turns into a 429 carrying
-    // a Retry-After hint. Checked before any API call, never after.
-    await assertCanUserSearch(userId);
-
-    const result = await discoverCompetitors(userId, profile.channelId, {
-      allowLiveSearch,
-    });
+    let result;
+    try {
+      result = await discoverCompetitors(userId, profile.channelId, { allowLiveSearch });
+    } catch (err) {
+      // A channel with nothing published is a normal state for a new creator, not a
+      // failure, so it gets its own actionable message rather than a generic 500.
+      if (err instanceof NoKeywordsError) return jsonError(409, err.code, err.message);
+      throw err;
+    }
 
     const liveSearchSkipped = result.source === "fresh" && !allowLiveSearch;
 
@@ -61,6 +55,11 @@ export async function POST() {
     // actually happened. Starting a 7 day cooldown for a run that produced nothing
     // would be wrong on its own terms, quite apart from making the flow untestable.
     if (!liveSearchSkipped) await markDiscoveryRun(userId);
+
+    // A fresh run just spent ~112 units in one go, easily enough to move the app
+    // into its warning band. Drop the cached status so the banner reflects reality
+    // now rather than up to a minute from now.
+    if (result.source === "fresh" && !liveSearchSkipped) await invalidateQuotaStatus();
 
     return NextResponse.json({
       source: result.source,
@@ -74,10 +73,6 @@ export async function POST() {
       // result instead of implying the niche has no competitors.
       liveSearchSkipped,
     });
-  } catch (err) {
-    if (err instanceof NoKeywordsError) {
-      return jsonError(409, err.code, err.message);
-    }
-    return handleRouteError(err, "competitors/discover");
-  }
-}
+  },
+  { rateLimit: "search" },
+);

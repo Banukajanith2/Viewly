@@ -17,6 +17,7 @@ import {
   hasSearchBudget,
   secondsUntilQuotaReset,
 } from "@/lib/quota/tracker";
+import { TTL, cacheKeys, del as cacheDel, get as cacheGet, set as cacheSet } from "@/lib/cache/kv";
 
 export type QuotaLevel = "ok" | "low" | "exhausted";
 
@@ -36,23 +37,34 @@ const LOW_THRESHOLD = 0.15;
 const EXHAUSTED_THRESHOLD = 0.02;
 
 /**
- * In-process cache. The dashboard layout reads this on every page load, and the
- * Firestore free tier is ~50k reads/day, so an uncached read here would spend the
- * database budget to report on the API budget. 60 seconds is well inside the
- * resolution anyone needs from a daily counter.
+ * Cached in KV rather than in process (Part 7). The dashboard layout reads this on
+ * every page load, and the Firestore free tier is ~50k reads/day, so an uncached
+ * read here would spend the database budget to report on the API budget.
  *
- * Part 7 replaces this with the shared KV cache so the value is consistent across
- * serverless instances rather than per-instance.
+ * Shared rather than per-instance matters for the message itself: with a per-process
+ * memo, two serverless instances could disagree about whether the budget is gone, so
+ * one user is told the limit is reached while another is not. A shared cache means
+ * everyone sees the same answer, which is the entire point of an app-wide notice.
+ *
+ * The reset time is recomputed on read rather than cached, so a value stored 59
+ * seconds ago still counts down correctly.
  */
-const CACHE_TTL_MS = 60_000;
-let cached: { value: QuotaStatus; at: number } | undefined;
-
 export async function getQuotaStatus(): Promise<QuotaStatus> {
-  if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.value;
-
   const secondsUntilReset = secondsUntilQuotaReset();
   const resetsAt = new Date(Date.now() + secondsUntilReset * 1000).toISOString();
 
+  const hit = await cacheGet<Pick<QuotaStatus, "level" | "searchAvailable">>(
+    cacheKeys.quotaStatus(),
+  );
+  if (hit) return { ...hit, resetsAt, secondsUntilReset };
+
+  return computeQuotaStatus(secondsUntilReset, resetsAt);
+}
+
+async function computeQuotaStatus(
+  secondsUntilReset: number,
+  resetsAt: string,
+): Promise<QuotaStatus> {
   let value: QuotaStatus;
   try {
     const usage = await getGlobalUsageToday();
@@ -77,11 +89,19 @@ export async function getQuotaStatus(): Promise<QuotaStatus> {
     value = { level: "ok", searchAvailable: true, resetsAt, secondsUntilReset };
   }
 
-  cached = { value, at: Date.now() };
+  // Only the derived judgement is cached, never the raw counts.
+  await cacheSet(
+    cacheKeys.quotaStatus(),
+    { level: value.level, searchAvailable: value.searchAvailable },
+    TTL.quotaStatus,
+  );
   return value;
 }
 
-/** Clears the memo. Used after a large deliberate spend so the UI updates promptly. */
-export function invalidateQuotaStatus(): void {
-  cached = undefined;
+/**
+ * Clears the cached judgement. Called after a large deliberate spend so the banner
+ * appears promptly rather than up to a minute later.
+ */
+export async function invalidateQuotaStatus(): Promise<void> {
+  await cacheDel(cacheKeys.quotaStatus());
 }

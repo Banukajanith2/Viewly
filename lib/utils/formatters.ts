@@ -68,6 +68,19 @@ export function formatRetryAfter(seconds: number): string {
   return `in about ${Math.ceil(seconds / 86_400)} days`;
 }
 
+/**
+ * Whether a moment is still ahead of us.
+ *
+ * Lives here rather than inline in a component because reading the clock during
+ * render is impure: React may re-render at any time and would get a different
+ * answer. Keeping it behind a function with an injectable `now` also makes it
+ * testable.
+ */
+export function isFuture(date: Date | string, now: Date = new Date()): boolean {
+  const at = typeof date === "string" ? new Date(date) : date;
+  return at.getTime() > now.getTime();
+}
+
 /** YYYY-MM-DD in UTC, matching how quota days are keyed. */
 export function toDateKey(date: Date = new Date()): string {
   return date.toISOString().slice(0, 10);

@@ -7,7 +7,7 @@ import {
 } from "@/lib/youtube/analytics-api";
 import { listUsersWithLinkedChannel, saveSnapshot, todayKey } from "@/lib/firebase/firestore";
 import { getGlobalUsageToday, remainingUnits } from "@/lib/quota/tracker";
-import { handleRouteError, isAuthorizedCron, jsonError } from "@/lib/utils/api";
+import { cronRoute } from "@/lib/utils/api";
 import type { DailySnapshot } from "@/types/youtube";
 
 export const runtime = "nodejs";
@@ -41,53 +41,45 @@ const RESERVE_UNITS = 2_000;
  * nothing here assumes a precise time. The snapshot is keyed by UTC date and is
  * idempotent: running twice in one day overwrites rather than duplicates.
  */
-export async function GET(request: Request) {
-  try {
-    if (!isAuthorizedCron(request)) {
-      return jsonError(401, "unauthorized", "Missing or invalid cron secret.");
+export const GET = cronRoute("cron/daily-sync", async () => {
+  const date = todayKey();
+  const users = await listUsersWithLinkedChannel();
+
+  const synced: string[] = [];
+  const failed: Array<{ userId: string; error: string }> = [];
+  let stoppedForBudget = false;
+
+  for (const user of users) {
+    if (!user.channelId) continue;
+
+    // Re-read the ledger each iteration: the loop is what is spending it.
+    const usage = await getGlobalUsageToday(date);
+    if (remainingUnits(usage) - UNITS_PER_USER < RESERVE_UNITS) {
+      stoppedForBudget = true;
+      break;
     }
 
-    const date = todayKey();
-    const users = await listUsersWithLinkedChannel();
-
-    const synced: string[] = [];
-    const failed: Array<{ userId: string; error: string }> = [];
-    let stoppedForBudget = false;
-
-    for (const user of users) {
-      if (!user.channelId) continue;
-
-      // Re-read the ledger each iteration: the loop is what is spending it.
-      const usage = await getGlobalUsageToday(date);
-      if (remainingUnits(usage) - UNITS_PER_USER < RESERVE_UNITS) {
-        stoppedForBudget = true;
-        break;
-      }
-
-      try {
-        synced.push(await syncUser(user.uid, user.channelId, date));
-      } catch (err) {
-        // One user's expired token must not abort everyone else's sync.
-        failed.push({
-          userId: user.uid,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
+    try {
+      synced.push(await syncUser(user.uid, user.channelId, date));
+    } catch (err) {
+      // One user's expired token must not abort everyone else's sync.
+      failed.push({
+        userId: user.uid,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
-
-    return NextResponse.json({
-      ok: true,
-      date,
-      totalUsers: users.length,
-      syncedCount: synced.length,
-      failedCount: failed.length,
-      stoppedForBudget,
-      failed,
-    });
-  } catch (err) {
-    return handleRouteError(err, "cron/daily-sync");
   }
-}
+
+  return NextResponse.json({
+  ok: true,
+  date,
+  totalUsers: users.length,
+  syncedCount: synced.length,
+  failedCount: failed.length,
+  stoppedForBudget,
+  failed,
+  });
+});
 
 async function syncUser(userId: string, channelId: string, date: string): Promise<string> {
   const warnings: string[] = [];

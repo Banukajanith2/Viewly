@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { QuotaBanner } from "@/components/layout/quota-banner";
 import { getSessionUser } from "@/lib/auth/session";
 import { getQuotaStatus } from "@/lib/quota/status";
@@ -33,6 +34,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
             <span className="hidden text-sm text-muted-foreground sm:inline">
               {user.email}
             </span>
+            <ThemeToggle />
             <SignOutButton />
           </div>
         </div>

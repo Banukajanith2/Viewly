@@ -6,7 +6,7 @@ import {
   getGlobalUsageToday,
   remainingUnits,
 } from "@/lib/quota/tracker";
-import { handleRouteError, isAuthorizedCron, jsonError } from "@/lib/utils/api";
+import { cronRoute } from "@/lib/utils/api";
 import { daysAgo } from "@/lib/utils/formatters";
 
 export const runtime = "nodejs";
@@ -25,41 +25,33 @@ const HISTORY_DAYS = 30;
  * It is scheduled late in the UTC day so the snapshot captures a nearly complete
  * day, and nothing here depends on the exact minute it fires.
  */
-export async function GET(request: Request) {
-  try {
-    if (!isAuthorizedCron(request)) {
-      return jsonError(401, "unauthorized", "Missing or invalid cron secret.");
-    }
+export const GET = cronRoute("cron/quota-report", async () => {
+  const date = todayKey();
+  const usage = await getGlobalUsageToday(date);
+  const remaining = remainingUnits(usage);
 
-    const date = todayKey();
-    const usage = await getGlobalUsageToday(date);
-    const remaining = remainingUnits(usage);
+  const snapshot = {
+    ...usage,
+    dailyQuotaUnits: DAILY_QUOTA_UNITS,
+    remainingUnits: remaining,
+    utilisation: DAILY_QUOTA_UNITS > 0 ? usage.totalUnits / DAILY_QUOTA_UNITS : 0,
+    searchCeiling: Math.floor(DAILY_QUOTA_UNITS * SEARCH_SAFETY_MARGIN),
+    recordedAt: new Date().toISOString(),
+  };
 
-    const snapshot = {
-      ...usage,
-      dailyQuotaUnits: DAILY_QUOTA_UNITS,
-      remainingUnits: remaining,
-      utilisation: DAILY_QUOTA_UNITS > 0 ? usage.totalUnits / DAILY_QUOTA_UNITS : 0,
-      searchCeiling: Math.floor(DAILY_QUOTA_UNITS * SEARCH_SAFETY_MARGIN),
-      recordedAt: new Date().toISOString(),
-    };
+  await db().doc(paths.quotaHistory(date)).set(snapshot);
 
-    await db().doc(paths.quotaHistory(date)).set(snapshot);
+  // Read back the window rather than accumulating one growing document, so the
+  // history stays a set of small docs and old days can simply be dropped.
+  const cutoff = daysAgo(HISTORY_DAYS);
+  const historySnap = await db()
+    .collection("quota_history")
+    .where("date", ">=", cutoff)
+    .orderBy("date", "desc")
+    .limit(HISTORY_DAYS)
+    .get();
 
-    // Read back the window rather than accumulating one growing document, so the
-    // history stays a set of small docs and old days can simply be dropped.
-    const cutoff = daysAgo(HISTORY_DAYS);
-    const historySnap = await db()
-      .collection("quota_history")
-      .where("date", ">=", cutoff)
-      .orderBy("date", "desc")
-      .limit(HISTORY_DAYS)
-      .get();
+  const history = historySnap.docs.map((d) => d.data());
 
-    const history = historySnap.docs.map((d) => d.data());
-
-    return NextResponse.json({ ok: true, today: snapshot, history });
-  } catch (err) {
-    return handleRouteError(err, "cron/quota-report");
-  }
-}
+  return NextResponse.json({ ok: true, today: snapshot, history });
+});
